@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import "../components/header.tsx";
+
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -13,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body>
+        <header></header>
         {children}
       </body>
     </html>
