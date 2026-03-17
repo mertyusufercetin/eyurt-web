@@ -7,10 +7,10 @@ export default function Header() {
   return (
     <header className="site-header">
       <Image src={logo} alt="Logo" className="logo" />
-      <nav className="nav-links">
+      <nav className="nav-links" >
         <Link href="#">Ana Sayfa</Link>
         <Link href="#">Öğrenci paneli</Link>
-        <Link href="#">Giriş yap / Kayıt Ol</Link>
+        <Link href="#" className="border-2 rounded-xl p-2">Giriş yap / Kayıt Ol</Link>
       </nav>
     </header>
   );
