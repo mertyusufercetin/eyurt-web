@@ -1,0 +1,24 @@
+$main-color : crimson;
+$secondary-color: rgb(255, 61, 61);
+$text-color: white;
+
+header{
+    background-color: $main-color;
+    width: 100vw;
+
+    position: absolute;
+        left: 0;
+        top: 0;
+    
+    display: flex;
+    gap: 20;
+
+
+    .logo{
+        width: 150px;
+        height: 150px;
+        border: 1px solid black;
+        
+        margin-left: 5vw
+    }
+}
