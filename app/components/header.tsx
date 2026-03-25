@@ -1,27 +1,23 @@
 "use client"
-
-import Link from "next/link";
 import "../scss/header.scss";
-import Image from "next/image";
-import logo from "../../public/logo_beyaz.png";
-import { useState } from "react";
-import UsersOpen from "./user-log-reg";
+import Link from 'next/link';
+import Image from 'next/image';
+import LOGO from '../../public/logo_beyaz.png'
+
 
 export default function Header() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+return(
+  <header className="flex items-center text-white text-[1.2vw] font-bold w-full h-30 bg-red-600">
 
-  return (
-    <header className="site-header">
-      <Image src={logo} alt="Logo" className="logo" />
-      <nav className="nav-links" >
-        <Link href="/">Ana Sayfa</Link>
-        <Link href="#" className="">Öğrenci paneli</Link>
-        <Link href="#" className="">Çalışan paneli</Link>
-        <button onClick={() =>{console.log(setIsModalOpen(true))}} className="rounded-xl bg-black p-3 px-5 cursor-pointer hover:bg-gray-700 transition-all">Giriş Yap / Kayıt Ol</button>
+    <Image src={LOGO} alt="Logo" width={150} height={150} className="ml-10" />
 
-        <UsersOpen isOpen={isModalOpen} onClose={()=>{setIsModalOpen(false)}}></UsersOpen>
-      </nav>
-    </header>
-  );
+    <nav className="flex items-center gap-10 w-max h-20 ml-auto mr-10">
+
+    <Link href="">Personel</Link>/<Link href="">Öğrenci</Link>
+    <Link className="p-3 px-5 bg-black text-shadow-black duration-350 ease-in-out" href="/">Ana Sayfa</Link>
+    <Link href="">Giriş Yapın</Link>
+    </nav>
+  </header>
+);
 }
 
