@@ -1,0 +1,37 @@
+.main-popup{
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    width: 100vw;
+    height: 100vh;
+
+    background-color: rgba(0, 0, 0, 0.471);
+
+    .section-student{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        border: 2px solid white;
+
+        background-color: crimson;
+        width: 30vw;
+        height: 40vh;
+
+        font-weight: 500;
+        color: white;
+
+        .inputs{
+            border: 1px solid black;
+            border-radius: 5px;
+
+            padding: 2%;
+
+            color: black;
+            background-color: white;
+
+            
+        }
+    }
+}
