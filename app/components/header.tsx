@@ -3,19 +3,26 @@ import "../scss/header.scss";
 import Link from 'next/link';
 import Image from 'next/image';
 import LOGO from '../../public/logo_beyaz.png'
+import { useState } from "react";
 
+interface control{
+  basti: boolean;
+  setBasti: (val:boolean) => boolean;
+}
 
 export default function Header() {
+
+  const [basti, setBasti] = useState<boolean>(false);
+
 return(
-  <header className="flex items-center text-white text-[1.2vw] font-bold w-full h-30 bg-red-600">
+  <header>
 
     <Image src={LOGO} alt="Logo" width={150} height={150} className="ml-10" />
 
-    <nav className="flex items-center gap-10 w-max h-20 ml-auto mr-10">
+    <nav>
 
-    <Link href="">Personel</Link>/<Link href="">Öğrenci</Link>
-    <Link className="p-3 px-5 bg-black text-shadow-black duration-350 ease-in-out" href="/">Ana Sayfa</Link>
-    <Link href="">Giriş Yapın</Link>
+    <Link className="pagelinks" href="/">Ana Sayfa</Link>
+    <button className="pagelinks">Giriş Yap</button>
     </nav>
   </header>
 );
