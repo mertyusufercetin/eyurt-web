@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import "./scss/global.scss";
-import Footer from "./components/footer";
+import "./globals.css";
 import Header from "./components/header";
+import Footer from "./components/footer";
+
 
 export const metadata: Metadata = {
   title: "E-YURT",
@@ -15,9 +16,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body>
+      <body className="bg-gray-50 flex flex-col min-h-screen">
         <Header />
-        {children}
+        <main className="flex-1">
+          {children}
+        </main>
         <Footer />
       </body>
     </html>
