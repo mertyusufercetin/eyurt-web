@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from 'react-icons/fa';
 
 export default function Footer() {
@@ -13,11 +14,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="bg-linear-to-br from-red-500 to-red-600 rounded-lg p-2 w-10 h-10 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">E</span>
-              </div>
-              <span className="font-bold text-lg text-white">Eyurt</span>
+            <div className="flex items-center gap-3 mb-4">
+              <Image src="/logomuzoriginal.jpg" alt="Eyurt Logo" width={52} height={52} className="rounded-lg object-cover" />
+              <span className="font-extrabold text-xl text-white tracking-tight" style={{ fontFamily: 'var(--font-montserrat)' }}>E-YURT</span>
             </div>
             <p className="text-sm text-gray-400">
               Öğrenciler için modern ve güvenli yurt yönetim sistemi.

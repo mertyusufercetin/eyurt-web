@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 
 export default function Header() {
@@ -17,11 +18,9 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="bg-linear-to-br from-red-500 to-red-600 rounded-lg p-2 w-10 h-10 flex items-center justify-center">
-              <span className="text-white font-bold text-lg">E</span>
-            </div>
-            <span className="hidden sm:inline font-bold text-lg text-gray-800">Eyurt</span>
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <Image src="/logomuzoriginal.jpg" alt="Eyurt Logo" width={56} height={56} className="rounded-lg object-cover" />
+            <span className="hidden sm:inline font-extrabold text-xl text-gray-800 tracking-tight" style={{ fontFamily: 'var(--font-montserrat)' }}>E-YURT</span>
           </Link>
 
           {/* Desktop Navigation */}

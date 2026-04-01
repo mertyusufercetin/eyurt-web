@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { supabase } from '@/lib/supabase';
@@ -38,11 +39,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 bg-white rounded-lg p-3 shadow-md">
-            <div className="bg-linear-to-br from-red-500 to-red-600 rounded-lg p-2 w-12 h-12 flex items-center justify-center">
-              <span className="text-white font-bold text-xl">E</span>
-            </div>
-            <span className="font-bold text-xl text-gray-800">Eyurt</span>
+          <div className="inline-flex flex-col items-center gap-3 bg-white rounded-xl p-6 shadow-md">
+            <Image src="/logomuzoriginal.jpg" alt="Eyurt Logo" width={96} height={96} className="rounded-xl object-cover" />
+            <span className="font-extrabold text-2xl text-gray-800 tracking-tight" style={{ fontFamily: 'var(--font-montserrat)' }}>E-YURT</span>
           </div>
         </div>
 
