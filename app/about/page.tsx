@@ -6,18 +6,23 @@ import { FaBullseye, FaLightbulb, FaHandshake } from 'react-icons/fa';
 export default function About() {
   const team = [
     {
-      name: 'Yusuf Mert Erçetin',
+      name: 'Fatma Topuz Eryürük',
       role: 'Genel Müdür',
+      description: 'Öğretmen',
+    },
+    {
+      name: 'Yusuf Mert Erçetin',
+      role: 'Web Tasarımcı',
       description: 'Öğrenci',
     },
     {
       name: 'Ahmet',
-      role: 'Teknik Müdür',
+      role: 'Mobile Geliştirici',
       description: 'Öğrenci',
     },
     {
       name: 'Baran Arı',
-      role: 'Operasyon Müdürü',
+      role: 'Mobile Geliştirici',
       description: 'Öğrenci',
     },
   ];
