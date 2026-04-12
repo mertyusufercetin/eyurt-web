@@ -4,11 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaIdCard, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { supabase } from '@/lib/supabase';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [tc, setTc] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,15 +20,23 @@ export default function Login() {
     setIsLoading(true);
     setError('');
 
+    if (!/^\d{11}$/.test(tc)) {
+      setError('TC Kimlik No 11 haneli olmalıdır.');
+      setIsLoading(false);
+      return;
+    }
+
+    const email = `${tc}@eyurt.local`;
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      setError('E-posta veya şifre hatalı.');
+      setError('TC Kimlik No veya şifre hatalı.');
     } else {
-      router.push('/');
+      router.push('/dashboard');
     }
 
     setIsLoading(false);
@@ -61,21 +69,26 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Input */}
+            {/* TC Kimlik No Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                E-posta Adresi
+              <label htmlFor="tc" className="block text-sm font-semibold text-gray-700 mb-2">
+                TC Kimlik No
               </label>
               <div className="relative">
-                <FaEnvelope className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <FaIdCard className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ornek@email.com"
+                  type="text"
+                  id="tc"
+                  inputMode="numeric"
+                  value={tc}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    if (val.length <= 11) setTc(val);
+                  }}
+                  placeholder="12345678901"
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-500 transition-colors duration-200 bg-gray-50"
                   required
+                  maxLength={11}
                 />
               </div>
             </div>
