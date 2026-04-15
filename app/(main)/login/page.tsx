@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FaIdCard, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -12,29 +11,54 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [tcError, setTcError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [generalError, setGeneralError] = useState('');
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    setTcError('');
+    setPasswordError('');
+    setGeneralError('');
 
-    if (!/^\d{11}$/.test(tc)) {
-      setError('TC Kimlik No 11 haneli olmalıdır.');
-      setIsLoading(false);
-      return;
+    let hasError = false;
+
+    if (!tc.trim()) {
+      setTcError('TC Kimlik No giriniz.');
+      hasError = true;
+    } else if (!/^\d{11}$/.test(tc)) {
+      setTcError('TC Kimlik No 11 haneli olmalıdır.');
+      hasError = true;
     }
 
-    const email = `${tc}@eyurt.local`;
+    if (!password) {
+      setPasswordError('Şifre giriniz.');
+      hasError = true;
+    } else if (password.length < 6) {
+      setPasswordError('Şifre en az 6 karakter olmalıdır.');
+      hasError = true;
+    }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    if (hasError) return;
+
+    setIsLoading(true);
+
+    const email = `${tc}@eyurt.com`;
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setError('TC Kimlik No veya şifre hatalı.');
+    if (authError) {
+      if (authError.message === 'Invalid login credentials') {
+        setGeneralError('TC Kimlik No veya şifre hatalı.');
+      } else if (authError.message === 'Email not confirmed') {
+        setGeneralError('Hesabınız henüz onaylanmamış.');
+      } else {
+        setGeneralError(authError.message);
+      }
     } else {
       router.push('/dashboard');
     }
@@ -62,9 +86,9 @@ export default function Login() {
             Hesabınıza erişmek için giriş yapın
           </p>
 
-          {error && (
+          {generalError && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700">{generalError}</p>
             </div>
           )}
 
@@ -91,6 +115,7 @@ export default function Login() {
                   maxLength={11}
                 />
               </div>
+              {tcError && <p className="mt-1 text-sm text-red-600">{tcError}</p>}
             </div>
 
             {/* Password Input */}
@@ -117,6 +142,7 @@ export default function Login() {
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
+              {passwordError && <p className="mt-1 text-sm text-red-600">{passwordError}</p>}
             </div>
 
             {/* Remember Me */}
