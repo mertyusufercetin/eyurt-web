@@ -52,13 +52,7 @@ export default function Login() {
     });
 
     if (authError) {
-      if (authError.message === 'Invalid login credentials') {
-        setGeneralError('TC Kimlik No veya şifre hatalı.');
-      } else if (authError.message === 'Email not confirmed') {
-        setGeneralError('Hesabınız henüz onaylanmamış.');
-      } else {
-        setGeneralError(authError.message);
-      }
+      setGeneralError('TC Kimlik No veya şifreniz yanlış.');
     } else {
       router.push('/dashboard');
     }
