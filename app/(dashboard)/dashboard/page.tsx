@@ -33,9 +33,9 @@ export default function Dashboard() {
 function AdminOverview() {
   const [stats, setStats] = useState<{
     toplamOgrenci: number; toplamOda: number; dolulukOrani: number;
-    bekleyenBasvuru: number; bekleyenAriza: number; aylikGelir: number;
+    bekleyenBasvuru: number; bekleyenAriza: number; aylikGelir: number; bekleyenBorc: number;
   } | null>(null);
-  const [sonBasvurular, setSonBasvurular] = useState<{ id: string; ad: string; soyad: string; durum: string; created_at: string }[]>([]);
+    const [sonBasvurular, setSonBasvurular] = useState<{ id: string; ad: string | null; soyad: string | null; durum: string | null; created_at: string }[]>([]);
   const [sonArizalar, setSonArizalar] = useState<{ id: string; baslik: string; durum: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,29 +44,35 @@ function AdminOverview() {
       const [ogrencilerRes, odalarRes, basvurularRes, arizalarRes, odemelerRes] = await Promise.all([
         supabase.from('kullanicilar').select('id', { count: 'exact', head: true }).eq('rol', 'ogrenci').eq('aktif', true),
         supabase.from('odalar').select('id, kapasite, dolu_kisi_sayisi, durum'),
-        supabase.from('basvurular').select('id, ad, soyad, durum, created_at').order('created_at', { ascending: false }).limit(5),
+        supabase.from('basvurular').select('*').order('created_at', { ascending: false }).limit(5),
         supabase.from('oda_arizalari').select('id, baslik, durum, created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('odemeler').select('id, tutar, durum'),
+        supabase.from('odemeler').select('id, tutar, durum, ay, yil'),
       ]);
       const odalar = odalarRes.data ?? [];
       const aktifOdalar = odalar.filter((o: { durum: string }) => o.durum === 'aktif');
       const toplamKapasite = aktifOdalar.reduce((s: number, o: { kapasite: number }) => s + o.kapasite, 0);
       const toplamDolu = aktifOdalar.reduce((s: number, o: { dolu_kisi_sayisi: number }) => s + o.dolu_kisi_sayisi, 0);
       const odemeler = odemelerRes.data ?? [];
+      const bugunAy = new Date().getMonth() + 1;
+      const bugunYil = new Date().getFullYear();
+      const buAyOdemeler = odemeler.filter((o: { ay: number; yil: number }) => o.ay === bugunAy && o.yil === bugunYil);
 
       setStats({
         toplamOgrenci: ogrencilerRes.count ?? 0,
         toplamOda: odalar.length,
         dolulukOrani: toplamKapasite > 0 ? Math.round((toplamDolu / toplamKapasite) * 100) : 0,
-        bekleyenBasvuru: (basvurularRes.data ?? []).filter((b: { durum: string }) => b.durum === 'beklemede').length,
+        bekleyenBasvuru: (basvurularRes.data ?? []).filter((b: { durum: string | null }) => b.durum === 'beklemede').length,
         bekleyenAriza: (arizalarRes.data ?? []).filter((a: { durum: string }) => a.durum === 'beklemede').length,
-        aylikGelir: odemeler.filter((o: { durum: string }) => o.durum === 'odendi').reduce((s: number, o: { tutar: number }) => s + Number(o.tutar), 0),
+        aylikGelir: buAyOdemeler.filter((o: { durum: string }) => o.durum === 'odendi').reduce((s: number, o: { tutar: number }) => s + Number(o.tutar), 0),
+        bekleyenBorc: odemeler.filter((o: { durum: string }) => o.durum === 'odenmedi' || o.durum === 'gecikti').reduce((s: number, o: { tutar: number }) => s + Number(o.tutar), 0),
       });
       setSonBasvurular(basvurularRes.data ?? []);
       setSonArizalar(arizalarRes.data ?? []);
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const durumRenk = (d: string) => {
@@ -83,12 +89,13 @@ function AdminOverview() {
   if (loading || !stats) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500" /></div>;
 
   const statCards = [
-    { label: 'Toplam Öğrenci', value: stats.toplamOgrenci, icon: Users, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Toplam Oda', value: stats.toplamOda, icon: BedDouble, color: 'text-violet-600 bg-violet-50' },
-    { label: 'Doluluk Oranı', value: `%${stats.dolulukOrani}`, icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50' },
-    { label: 'Bekleyen Başvuru', value: stats.bekleyenBasvuru, icon: FileText, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Açık Arıza', value: stats.bekleyenAriza, icon: Wrench, color: 'text-rose-600 bg-rose-50' },
-    { label: 'Aylık Gelir', value: `${stats.aylikGelir.toLocaleString('tr-TR')} ₺`, icon: CreditCard, color: 'text-teal-600 bg-teal-50' },
+    { label: 'Toplam Öğrenci', value: stats.toplamOgrenci, icon: Users, color: 'text-blue-600 bg-blue-50', href: '/dashboard/students' },
+    { label: 'Toplam Oda', value: stats.toplamOda, icon: BedDouble, color: 'text-violet-600 bg-violet-50', href: '/dashboard/rooms' },
+    { label: 'Doluluk Oranı', value: `%${stats.dolulukOrani}`, icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50', href: '/dashboard/rooms' },
+    { label: 'Bekleyen Başvuru', value: stats.bekleyenBasvuru, icon: FileText, color: 'text-amber-600 bg-amber-50', href: '/dashboard/applications' },
+    { label: 'Açık Arıza', value: stats.bekleyenAriza, icon: Wrench, color: 'text-rose-600 bg-rose-50', href: '/dashboard/faults' },
+    { label: 'Bu Ay Tahsilat', value: `${stats.aylikGelir.toLocaleString('tr-TR')} ₺`, icon: CreditCard, color: 'text-teal-600 bg-teal-50', href: '/dashboard/payments' },
+    { label: 'Bekleyen Borç', value: `${stats.bekleyenBorc.toLocaleString('tr-TR')} ₺`, icon: AlertTriangle, color: 'text-orange-600 bg-orange-50', href: '/dashboard/payments' },
   ];
 
   return (
@@ -97,14 +104,14 @@ function AdminOverview() {
         <h1 className="text-2xl font-bold text-gray-900">Yönetici Paneli</h1>
         <p className="text-gray-500 text-sm mt-1">Yurt yönetim sistemi genel bakış</p>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((s) => { const Icon = s.icon; return (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-4">
+          <Link key={s.label} href={s.href} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
             <div className="flex items-center justify-between">
               <div><p className="text-xs font-medium text-gray-500">{s.label}</p><p className="text-2xl font-bold text-gray-900 mt-1">{s.value}</p></div>
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}><Icon size={20} /></div>
             </div>
-          </div>
+          </Link>
         ); })}
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -126,8 +133,8 @@ function AdminOverview() {
           <div className="divide-y divide-gray-50">
             {sonBasvurular.length === 0 ? <p className="px-5 py-8 text-center text-sm text-gray-400">Başvuru yok</p> : sonBasvurular.map((b) => (
               <div key={b.id} className="px-5 py-3 flex items-center justify-between">
-                <div><p className="text-sm font-medium text-gray-800">{b.ad} {b.soyad}</p><p className="text-xs text-gray-400">{new Date(b.created_at).toLocaleDateString('tr-TR')}</p></div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${durumRenk(b.durum)}`}>{durumLabel(b.durum)}</span>
+                <div><p className="text-sm font-medium text-gray-800">{b.ad ?? '—'} {b.soyad ?? ''}</p><p className="text-xs text-gray-400">{new Date(b.created_at).toLocaleDateString('tr-TR')}</p></div>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${durumRenk(b.durum ?? 'beklemede')}`}>{durumLabel(b.durum ?? 'beklemede')}</span>
               </div>
             ))}
           </div>
@@ -163,6 +170,8 @@ function StaffOverview({ userId }: { userId: string }) {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   const durumConfig = (d: string) => {
@@ -206,7 +215,7 @@ function StaffOverview({ userId }: { userId: string }) {
         </div>
         <div className="divide-y divide-gray-50">
           {bekleyen.length === 0 ? <p className="px-5 py-8 text-center text-sm text-gray-400">Bekleyen görev yok</p> : bekleyen.slice(0, 5).map((a) => {
-            const cfg = durumConfig(a.durum);
+            const cfg = durumConfig(a.durum || 'beklemede');
             return (
               <div key={a.id} className="px-5 py-3 flex items-center justify-between">
                 <div>
@@ -252,6 +261,8 @@ function StudentOverview({ userId }: { userId: string }) {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   const durumRenk = (d: string) => {
@@ -330,7 +341,7 @@ function StudentOverview({ userId }: { userId: string }) {
             <a
               key={link.href}
               href={link.href}
-              className={`bg-gradient-to-br ${link.color} rounded-xl p-4 text-white hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
+              className={`bg-linear-to-br ${link.color} rounded-xl p-4 text-white hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
             >
               <Icon size={24} className="mb-2 opacity-80" />
               <span className="text-sm font-semibold">{link.label}</span>
@@ -340,6 +351,29 @@ function StudentOverview({ userId }: { userId: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Son İzin Talepleri */}
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800 text-sm">İzin Taleplerim</h3>
+            <CalendarClock size={16} className="text-gray-400" />
+          </div>
+          <div className="divide-y divide-gray-50">
+            {izinler.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-gray-400">Henüz izin talebi yok</p>
+            ) : izinler.map((i) => (
+              <div key={i.id} className="px-5 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{new Date(i.baslangic_tarihi).toLocaleDateString('tr-TR')} - {new Date(i.bitis_tarihi).toLocaleDateString('tr-TR')}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{i.sebep ?? ''}</p>
+                </div>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${durumRenk(i.durum ?? 'beklemede')}`}>
+                  {durumLabel(i.durum ?? 'beklemede')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Duyurular */}
         <div className="bg-white rounded-xl border border-gray-200">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -362,7 +396,9 @@ function StudentOverview({ userId }: { userId: string }) {
             ))}
           </div>
         </div>
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* Son Ödemeler */}
         <div className="bg-white rounded-xl border border-gray-200">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">

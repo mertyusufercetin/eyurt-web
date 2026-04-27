@@ -12,42 +12,69 @@ interface Ariza {
   aciklama: string;
   durum: string;
   created_at: string;
-  bildirim_yapan?: { ad: string; soyad: string } | null;
+  bildiren?: { ad: string; soyad: string } | null;
 }
 
 export default function TasksPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, loading: authLoading } = useAuth();
   const [arizalar, setArizalar] = useState<Ariza[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'beklemede' | 'isleme_alindi' | 'cozuldu'>('all');
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function loadData() {
-    const [{ data: odaArizalari }, { data: cmArizalari }] = await Promise.all([
-      supabase.from('oda_arizalari').select('id, ariza_tipi, aciklama, durum, created_at, oda:odalar!oda_id(oda_numarasi), bildirim_yapan:kullanicilar!bildirim_yapan_id(ad, soyad)').order('created_at', { ascending: false }),
-      supabase.from('camasirhane_arizalari').select('id, makine_no, aciklama, durum, created_at, bildirim_yapan:kullanicilar!bildirim_yapan_id(ad, soyad)').order('created_at', { ascending: false }),
+    const [{ data: odaData }, { data: cmData }] = await Promise.all([
+      supabase.from('oda_arizalari').select('id, baslik, aciklama, durum, created_at, oda_id, bildiren_id').order('created_at', { ascending: false }),
+      supabase.from('camasirhane_arizalari').select('id, aciklama, durum, created_at, makine_id, bildiren_id').order('created_at', { ascending: false }),
     ]);
 
+    // Collect unique IDs for separate lookups
+    const bildirenIds = [...new Set([
+      ...(odaData ?? []).map((a) => (a as Record<string, unknown>).bildiren_id as string),
+      ...(cmData ?? []).map((a) => (a as Record<string, unknown>).bildiren_id as string),
+    ].filter(Boolean))];
+
+    const makineIds = [...new Set((cmData ?? []).map((a) => (a as Record<string, unknown>).makine_id as string).filter(Boolean))];
+
+    const [{ data: kullanicilar }, { data: makineler }] = await Promise.all([
+      bildirenIds.length > 0 ? supabase.from('kullanicilar').select('id, ad, soyad').in('id', bildirenIds) : Promise.resolve({ data: [] }),
+      makineIds.length > 0 ? supabase.from('camasirhaneler').select('id, makine_no').in('id', makineIds) : Promise.resolve({ data: [] }),
+    ]);
+
+    const userMap = Object.fromEntries((kullanicilar ?? []).map((u) => { const k = u as Record<string, unknown>; return [k.id as string, k]; }));
+    const makineMap = Object.fromEntries((makineler ?? []).map((m) => { const k = m as Record<string, unknown>; return [k.id as string, k]; }));
+
     const mapped: Ariza[] = [
-      ...(odaArizalari ?? []).map((a: Record<string, unknown>) => ({
-        id: a.id as string,
-        tur: 'oda' as const,
-        konum: `Oda ${(a.oda as Record<string, unknown>)?.oda_numarasi ?? '?'} - ${a.ariza_tipi}`,
-        aciklama: a.aciklama as string,
-        durum: a.durum as string,
-        created_at: a.created_at as string,
-        bildirim_yapan: a.bildirim_yapan as Ariza['bildirim_yapan'],
-      })),
-      ...(cmArizalari ?? []).map((a: Record<string, unknown>) => ({
-        id: a.id as string,
-        tur: 'camasirhane' as const,
-        konum: `Çamaşırhane Makine #${a.makine_no}`,
-        aciklama: a.aciklama as string,
-        durum: a.durum as string,
-        created_at: a.created_at as string,
-        bildirim_yapan: a.bildirim_yapan as Ariza['bildirim_yapan'],
-      })),
+      ...(odaData ?? []).map((a: Record<string, unknown>) => {
+        const bildiren = a.bildiren_id ? userMap[a.bildiren_id as string] as { ad: string; soyad: string } | undefined : undefined;
+        return {
+          id: a.id as string,
+          tur: 'oda' as const,
+          konum: `Oda ${(a.oda_id as string) ?? '?'} - ${a.baslik}`,
+          aciklama: a.aciklama as string,
+          durum: a.durum as string,
+          created_at: a.created_at as string,
+          bildiren: bildiren ?? null,
+        };
+      }),
+      ...(cmData ?? []).map((a: Record<string, unknown>) => {
+        const makine = a.makine_id ? makineMap[a.makine_id as string] as { makine_no: number } | undefined : undefined;
+        const bildiren = a.bildiren_id ? userMap[a.bildiren_id as string] as { ad: string; soyad: string } | undefined : undefined;
+        return {
+          id: a.id as string,
+          tur: 'camasirhane' as const,
+          konum: `Çamaşırhane Makine #${makine?.makine_no ?? '?'}`,
+          aciklama: a.aciklama as string,
+          durum: a.durum as string,
+          created_at: a.created_at as string,
+          bildiren: bildiren ?? null,
+        };
+      }),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     setArizalar(mapped);
@@ -59,6 +86,8 @@ export default function TasksPage() {
     await supabase.from(table).update({ durum: yeniDurum }).eq('id', ariza.id);
     loadData();
   }
+
+  if (authLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" /></div>;
 
   if (currentUser?.rol !== 'memur') {
     return <div className="flex items-center justify-center h-64"><p className="text-gray-400 text-sm">Bu sayfaya erişim yetkiniz bulunmamaktadır.</p></div>;
@@ -128,7 +157,7 @@ export default function TasksPage() {
                   <p className="text-sm text-gray-500 mt-1">{a.aciklama}</p>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="text-xs text-gray-400">{new Date(a.created_at).toLocaleDateString('tr-TR')}</span>
-                    {a.bildirim_yapan && <span className="text-xs text-gray-400">Bildiren: {a.bildirim_yapan.ad} {a.bildirim_yapan.soyad}</span>}
+                    {a.bildiren && <span className="text-xs text-gray-400">Bildiren: {a.bildiren.ad} {a.bildiren.soyad}</span>}
                   </div>
                 </div>
                 {a.durum !== 'cozuldu' && (

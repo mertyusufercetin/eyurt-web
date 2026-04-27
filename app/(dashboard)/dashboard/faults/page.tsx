@@ -8,7 +8,6 @@ import type { OdaArizasi } from '@/lib/types';
 
 interface ArizaWithUser extends OdaArizasi {
   bildiren?: { ad: string; soyad: string; ogrenci_no: string } | null;
-  oda?: { oda_numarasi: string } | null;
 }
 
 const durumConfig = (d: string) => {
@@ -20,7 +19,8 @@ const durumConfig = (d: string) => {
 };
 
 export default function FaultsPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, loading: authLoading } = useAuth();
+  if (authLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500" /></div>;
   if (currentUser?.rol === 'ogrenci') return <StudentFaults userId={currentUser?.id ?? null} />;
   return <ManageFaults isMudur={currentUser?.rol === 'mudur'} />;
 }
@@ -32,16 +32,33 @@ function ManageFaults({ isMudur }: { isMudur: boolean }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from('oda_arizalari')
-        .select('*, bildiren:kullanicilar!bildirim_yapan_id(ad, soyad, ogrenci_no), oda:odalar!oda_id(oda_numarasi)')
-        .order('created_at', { ascending: false });
-      setArizalar(data ?? []);
-      setLoading(false);
-    }
+  useEffect(() => { 
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  async function load() {
+    const { data: rows } = await supabase
+      .from('oda_arizalari')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!rows || rows.length === 0) { setArizalar([]); setLoading(false); return; }
+
+    const ids = [...new Set(rows.map((r) => (r as Record<string,unknown>).bildiren_id as string).filter(Boolean))];
+    const { data: users } = ids.length > 0
+      ? await supabase.from('kullanicilar').select('id, ad, soyad, ogrenci_no').in('id', ids)
+      : { data: [] };
+    const userMap = Object.fromEntries((users ?? []).map((u) => { const k = u as Record<string,unknown>; return [k.id as string, k]; }));
+
+    setArizalar(rows.map((r) => {
+      const row = r as Record<string,unknown>;
+      const bildiren = row.bildiren_id ? userMap[row.bildiren_id as string] as ArizaWithUser['bildiren'] : null;
+      return { ...row, bildiren } as ArizaWithUser;
+    }));
+    setLoading(false);
+  }
 
   async function updateDurum(id: string, durum: OdaArizasi['durum']) {
     await supabase.from('oda_arizalari').update({ durum }).eq('id', id);
@@ -49,13 +66,13 @@ function ManageFaults({ isMudur }: { isMudur: boolean }) {
   }
 
   const filtered = arizalar.filter(a => {
-    if (filter !== 'all' && a.durum !== filter) return false;
+    if (filter !== 'all' && (a.durum ?? 'beklemede') !== filter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
-    return a.baslik?.toLowerCase().includes(q) || a.bildiren?.ad?.toLowerCase().includes(q) || a.bildiren?.soyad?.toLowerCase().includes(q);
+    return (a.baslik ?? '').toLowerCase().includes(q) || a.bildiren?.ad?.toLowerCase().includes(q) || a.bildiren?.soyad?.toLowerCase().includes(q);
   });
 
-  const beklemede = arizalar.filter(a => a.durum === 'beklemede').length;
+  const beklemede = arizalar.filter(a => (a.durum ?? 'beklemede') === 'beklemede').length;
   const isleme = arizalar.filter(a => a.durum === 'isleme_alindi').length;
   const cozuldu = arizalar.filter(a => a.durum === 'cozuldu').length;
 
@@ -89,26 +106,26 @@ function ManageFaults({ isMudur }: { isMudur: boolean }) {
             <p className="text-gray-400 text-sm">Arıza bulunamadı</p>
           </div>
         ) : filtered.map(a => {
-          const c = durumConfig(a.durum);
+          const c = durumConfig(a.durum ?? 'beklemede');
           const StatusIcon = c.icon;
           return (
             <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-gray-800 text-sm">{a.baslik}</h3>
+                    <h3 className="font-semibold text-gray-800 text-sm">{a.baslik ?? 'Arıza Bildirimi'}</h3>
                     <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${c.color}`}><StatusIcon size={12} /> {c.label}</span>
                   </div>
-                  <p className="text-sm text-gray-500">{a.aciklama}</p>
+                  <p className="text-sm text-gray-500">{a.aciklama ?? ''}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                    {a.oda && <span>Oda {a.oda.oda_numarasi}</span>}
+                    {a.oda_id && <span>Oda {a.oda_id}</span>}
                     {a.bildiren && <span>Bildiren: {a.bildiren.ad} {a.bildiren.soyad}</span>}
                     <span>{new Date(a.created_at).toLocaleDateString('tr-TR')}</span>
                   </div>
                 </div>
-                {a.durum !== 'cozuldu' && (
+                {(a.durum ?? 'beklemede') !== 'cozuldu' && (
                   <div className="flex gap-2 shrink-0">
-                    {a.durum === 'beklemede' && (
+                    {(a.durum ?? 'beklemede') === 'beklemede' && (
                       <button onClick={() => updateDurum(a.id, 'isleme_alindi')}
                         className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium rounded-lg transition-colors cursor-pointer">İşleme Al</button>
                     )}
@@ -129,18 +146,26 @@ function ManageFaults({ isMudur }: { isMudur: boolean }) {
 function StudentFaults({ userId }: { userId: string | null }) {
   const [arizalar, setArizalar] = useState<OdaArizasi[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hata, setHata] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ baslik: '', aciklama: '' });
+  const [form, setForm] = useState({ baslik: '', aciklama: '', oda_no: '' });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) { setLoading(false); return; }
     loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   async function loadData() {
-    const { data } = await supabase.from('oda_arizalari').select('*').eq('bildirim_yapan_id', userId).order('created_at', { ascending: false });
-    setArizalar(data ?? []);
+    setHata(null);
+    const { data, error } = await supabase
+      .from('oda_arizalari')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) { console.error('oda_arizalari error:', error); setHata(error.message); }
+    setArizalar((data ?? []) as OdaArizasi[]);
     setLoading(false);
   }
 
@@ -148,12 +173,14 @@ function StudentFaults({ userId }: { userId: string | null }) {
     e.preventDefault();
     if (!userId || submitting) return;
     setSubmitting(true);
-    await supabase.from('oda_arizalari').insert({
-      bildirim_yapan_id: userId,
+    const { error } = await supabase.from('oda_arizalari').insert({
+      bildiren_id: userId,
       baslik: form.baslik,
       aciklama: form.aciklama,
+      oda_id: form.oda_no.trim() || null,
     });
-    setForm({ baslik: '', aciklama: '' });
+    if (error) { console.error('insert error:', error); setHata(error.message); setSubmitting(false); return; }
+    setForm({ baslik: '', aciklama: '', oda_no: '' });
     setShowForm(false);
     setSubmitting(false);
     loadData();
@@ -173,13 +200,21 @@ function StudentFaults({ userId }: { userId: string | null }) {
           <Plus size={16} /> Arıza Bildir
         </button>
       </div>
+      {hata && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">Hata: {hata}</div>}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <h3 className="font-semibold text-gray-800">Yeni Arıza Bildirimi</h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Başlık</label>
-            <input type="text" required value={form.baslik} onChange={e => setForm({ ...form, baslik: e.target.value })}
-              placeholder="Örn: Musluk arızası" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Başlık</label>
+              <input type="text" required value={form.baslik} onChange={e => setForm({ ...form, baslik: e.target.value })}
+                placeholder="Örn: Musluk arızası" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Oda Numarası</label>
+              <input type="text" value={form.oda_no} onChange={e => setForm({ ...form, oda_no: e.target.value })}
+                placeholder="Örn: 204" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
@@ -211,7 +246,10 @@ function StudentFaults({ userId }: { userId: string | null }) {
             <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-800 text-sm">{a.baslik}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-800 text-sm">{a.baslik}</h3>
+                    {a.oda_id && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Oda {a.oda_id}</span>}
+                  </div>
                   <p className="text-sm text-gray-500 mt-1">{a.aciklama}</p>
                   <p className="text-xs text-gray-400 mt-2">{new Date(a.created_at).toLocaleDateString('tr-TR')}</p>
                 </div>

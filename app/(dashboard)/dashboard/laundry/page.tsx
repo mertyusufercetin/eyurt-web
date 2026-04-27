@@ -16,6 +16,8 @@ export default function LaundryPage() {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const camasirlar = makineler.filter(m => m.tur === 'camasir');

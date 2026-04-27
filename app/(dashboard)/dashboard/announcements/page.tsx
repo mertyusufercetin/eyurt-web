@@ -13,8 +13,13 @@ export default function AnnouncementsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ baslik: '', icerik: '', hedef_kitle: 'herkes', onemli: false });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function loadData() {
     const { data } = await supabase.from('duyurular').select('*').order('created_at', { ascending: false });
@@ -25,18 +30,34 @@ export default function AnnouncementsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!currentUser) return;
+    setError(null);
     setSaving(true);
-    await supabase.from('duyurular').insert({
-      baslik: form.baslik,
-      icerik: form.icerik,
-      hedef_kitle: form.hedef_kitle,
-      onemli: form.onemli,
-      yayinlayan_id: currentUser.id,
-    });
-    setForm({ baslik: '', icerik: '', hedef_kitle: 'herkes', onemli: false });
-    setShowForm(false);
-    setSaving(false);
-    loadData();
+    try {
+      if (!form.baslik.trim()) {
+        setError('Başlık zorunludur');
+        setSaving(false);
+        return;
+      }
+      if (!form.icerik.trim()) {
+        setError('İçerik zorunludur');
+        setSaving(false);
+        return;
+      }
+      await supabase.from('duyurular').insert({
+        baslik: form.baslik,
+        icerik: form.icerik,
+        hedef_kitle: form.hedef_kitle,
+        onemli: form.onemli,
+        yayinlayan_id: currentUser.id,
+      });
+      setForm({ baslik: '', icerik: '', hedef_kitle: 'herkes', onemli: false });
+      setShowForm(false);
+      setSaving(false);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Duyuru eklenirken hata oluştu');
+      setSaving(false);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -74,6 +95,11 @@ export default function AnnouncementsPage() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          {error && (
+            <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Başlık</label>
             <input type="text" required value={form.baslik} onChange={e => setForm({ ...form, baslik: e.target.value })}
@@ -114,7 +140,7 @@ export default function AnnouncementsPage() {
             <p className="text-gray-400 text-sm">Henüz duyuru bulunmuyor</p>
           </div>
         ) : duyurular.map((d) => {
-          const hc = hedefConfig(d.hedef_kitle);
+          const hc = hedefConfig(d.hedef_kitle ?? 'herkes');
           const HedefIcon = hc.icon;
           return (
             <div key={d.id} className={`bg-white rounded-xl border p-5 ${d.onemli ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-200'}`}>
@@ -122,12 +148,12 @@ export default function AnnouncementsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     {d.onemli && <AlertTriangle size={14} className="text-red-500" />}
-                    <h3 className="font-semibold text-gray-800 text-sm">{d.baslik}</h3>
+                    <h3 className="font-semibold text-gray-800 text-sm">{d.baslik ?? 'Başlıksız Duyuru'}</h3>
                     <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${hc.color}`}>
                       <HedefIcon size={12} /> {hc.label}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{d.icerik}</p>
+                  <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{d.icerik ?? ''}</p>
                   <p className="text-xs text-gray-400 mt-2">{new Date(d.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
                 <button onClick={() => handleDelete(d.id)} className="text-gray-300 hover:text-red-500 transition-colors cursor-pointer shrink-0">

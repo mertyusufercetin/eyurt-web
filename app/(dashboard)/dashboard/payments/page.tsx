@@ -36,11 +36,31 @@ function AdminPayments() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('odemeler').select('*, kullanici:kullanicilar!kullanici_id(ad, soyad, ogrenci_no)').order('yil', { ascending: false }).order('ay', { ascending: false });
-      setOdemeler(data ?? []);
+      const { data: rows } = await supabase
+        .from('odemeler')
+        .select('*')
+        .order('yil', { ascending: false })
+        .order('ay', { ascending: false });
+      
+      if (!rows || rows.length === 0) { setOdemeler([]); setLoading(false); return; }
+
+      const ids = [...new Set((rows as Record<string, unknown>[]).map((r) => (r as Record<string, unknown>).kullanici_id as string).filter(Boolean))];
+      const { data: users } = ids.length > 0
+        ? await supabase.from('kullanicilar').select('id, ad, soyad, ogrenci_no').in('id', ids)
+        : { data: [] };
+      
+      const userMap = Object.fromEntries((users ?? []).map((u) => { const k = u as Record<string, unknown>; return [k.id as string, k]; }));
+      
+      setOdemeler((rows as Record<string, unknown>[]).map((r) => {
+        const row = r as Record<string, unknown>;
+        const user = row.kullanici_id ? userMap[row.kullanici_id as string] as OdemeWithUser['kullanici'] : null;
+        return { ...row, kullanici: user } as OdemeWithUser;
+      }));
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const filtered = odemeler.filter(o => {
@@ -127,6 +147,8 @@ function StudentPayments({ userId }: { userId: string | null }) {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   const toplam = odemeler.reduce((s, o) => s + Number(o.tutar), 0);

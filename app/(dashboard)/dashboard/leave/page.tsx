@@ -40,13 +40,29 @@ function AdminLeave() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('izinler')
-        .select('*, kullanici:kullanicilar!kullanici_id(ad, soyad, ogrenci_no)')
+      const { data: rows } = await supabase.from('izinler')
+        .select('*')
         .order('created_at', { ascending: false });
-      setIzinler(data ?? []);
+      
+      if (!rows || rows.length === 0) { setIzinler([]); setLoading(false); return; }
+
+      const ids = [...new Set((rows as Record<string, unknown>[]).map((r) => (r as Record<string, unknown>).kullanici_id as string).filter(Boolean))];
+      const { data: users } = ids.length > 0
+        ? await supabase.from('kullanicilar').select('id, ad, soyad, ogrenci_no').in('id', ids)
+        : { data: [] };
+      
+      const userMap = Object.fromEntries((users ?? []).map((u) => { const k = u as Record<string, unknown>; return [k.id as string, k]; }));
+      
+      setIzinler((rows as Record<string, unknown>[]).map((r) => {
+        const row = r as Record<string, unknown>;
+        const user = row.kullanici_id ? userMap[row.kullanici_id as string] as IzinWithUser['kullanici'] : null;
+        return { ...row, kullanici: user } as IzinWithUser;
+      }));
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   async function updateDurum(id: string, durum: Izin['durum']) {
@@ -55,13 +71,13 @@ function AdminLeave() {
   }
 
   const filtered = izinler.filter(i => {
-    if (filter !== 'all' && i.durum !== filter) return false;
+    if (filter !== 'all' && (i.durum ?? 'beklemede') !== filter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return i.kullanici?.ad?.toLowerCase().includes(q) || i.kullanici?.soyad?.toLowerCase().includes(q) || i.kullanici?.ogrenci_no?.includes(q);
   });
 
-  const beklemede = izinler.filter(i => i.durum === 'beklemede').length;
+  const beklemede = izinler.filter(i => (i.durum ?? 'beklemede') === 'beklemede').length;
   const onaylandi = izinler.filter(i => i.durum === 'onaylandi').length;
   const reddedildi = izinler.filter(i => i.durum === 'reddedildi').length;
 
@@ -107,14 +123,14 @@ function AdminLeave() {
                   <p className="text-xs text-gray-400">{i.kullanici?.ogrenci_no}</p>
                 </td>
                 <td className="px-5 py-3 text-gray-700 text-xs">{new Date(i.baslangic_tarihi).toLocaleDateString('tr-TR')} - {new Date(i.bitis_tarihi).toLocaleDateString('tr-TR')}</td>
-                <td className="px-5 py-3 text-gray-600 text-sm max-w-xs truncate">{i.sebep}</td>
+                <td className="px-5 py-3 text-gray-600 text-sm max-w-xs truncate">{i.sebep ?? '—'}</td>
                 <td className="px-5 py-3">
-                  <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${durumRenk(i.durum)}`}>
-                    {durumIcon(i.durum)} {durumLabel(i.durum)}
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${durumRenk(i.durum ?? 'beklemede')}`}>
+                    {durumIcon(i.durum ?? 'beklemede')} {durumLabel(i.durum ?? 'beklemede')}
                   </span>
                 </td>
                 <td className="px-5 py-3">
-                  {i.durum === 'beklemede' && (
+                  {(i.durum === 'beklemede' || i.durum == null) && (
                     <div className="flex gap-2">
                       <button onClick={() => updateDurum(i.id, 'onaylandi')}
                         className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-xs font-medium rounded-lg transition-colors cursor-pointer">Onayla</button>
@@ -142,6 +158,8 @@ function StudentLeave({ userId }: { userId: string | null }) {
   useEffect(() => {
     if (!userId) return;
     loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   async function loadData() {
@@ -226,10 +244,10 @@ function StudentLeave({ userId }: { userId: string | null }) {
             ) : izinler.map(izin => (
               <tr key={izin.id} className="hover:bg-gray-50/50">
                 <td className="px-5 py-3 text-gray-800">{new Date(izin.baslangic_tarihi).toLocaleDateString('tr-TR')} - {new Date(izin.bitis_tarihi).toLocaleDateString('tr-TR')}</td>
-                <td className="px-5 py-3 text-gray-600 max-w-xs truncate">{izin.sebep}</td>
+                <td className="px-5 py-3 text-gray-6000 max-w-xs truncate">{izin.sebep ?? '—'}</td>
                 <td className="px-5 py-3">
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${durumRenk(izin.durum)}`}>
-                    {durumIcon(izin.durum)} {durumLabel(izin.durum)}
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${durumRenk(izin.durum ?? 'beklemede')}`}>
+                    {durumIcon(izin.durum ?? 'beklemede')} {durumLabel(izin.durum ?? 'beklemede')}
                   </span>
                 </td>
                 <td className="px-5 py-3 text-gray-400 text-xs">{new Date(izin.created_at).toLocaleDateString('tr-TR')}</td>

@@ -19,6 +19,8 @@ export default function StudentsPage() {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   if (currentUser?.rol !== 'mudur') {

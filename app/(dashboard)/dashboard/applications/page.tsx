@@ -13,8 +13,13 @@ export default function ApplicationsPage() {
   const [filter, setFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Basvuru | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function loadData() {
     const { data } = await supabase.from('basvurular').select('*').order('created_at', { ascending: false });
@@ -23,18 +28,24 @@ export default function ApplicationsPage() {
   }
 
   async function handleAction(id: string, durum: 'onaylandi' | 'reddedildi') {
-    setProcessing(true);
-    await supabase.from('basvurular').update({ durum, guncellendi_at: new Date().toISOString() }).eq('id', id);
-    setSelected(null);
-    setProcessing(false);
-    loadData();
+    try {
+      setError(null);
+      setProcessing(true);
+      await supabase.from('basvurular').update({ durum, guncellendi_at: new Date().toISOString() }).eq('id', id);
+      setSelected(null);
+      setProcessing(false);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Başvuru güncellenirken hata oluştu');
+      setProcessing(false);
+    }
   }
 
   if (currentUser?.rol !== 'mudur') {
     return <div className="flex items-center justify-center h-64"><p className="text-gray-400 text-sm">Bu sayfaya erişim yetkiniz bulunmamaktadır.</p></div>;
   }
 
-  const filtered = filter === 'all' ? basvurular : basvurular.filter(b => b.durum === filter);
+  const filtered = filter === 'all' ? basvurular : basvurular.filter(b => (b.durum ?? 'beklemede') === filter);
 
   const durumConfig = (d: string) => {
     switch (d) {
@@ -61,7 +72,7 @@ export default function ApplicationsPage() {
         </div>
         <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 cursor-pointer hover:shadow-sm" onClick={() => setFilter('beklemede')}>
           <p className="text-xs font-medium text-amber-600">Beklemede</p>
-          <p className="text-2xl font-bold text-amber-700 mt-1">{basvurular.filter(b => b.durum === 'beklemede').length}</p>
+          <p className="text-2xl font-bold text-amber-700 mt-1">{basvurular.filter(b => (b.durum ?? 'beklemede') === 'beklemede').length}</p>
         </div>
         <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4 cursor-pointer hover:shadow-sm" onClick={() => setFilter('onaylandi')}>
           <p className="text-xs font-medium text-emerald-600">Onaylanan</p>
@@ -77,19 +88,24 @@ export default function ApplicationsPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Başvuru Detayı</h3>
+            {error && (
+              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <div><span className="text-gray-500">Ad Soyad:</span><p className="font-medium text-gray-800">{selected.ad} {selected.soyad}</p></div>
-                <div><span className="text-gray-500">TC Kimlik:</span><p className="font-medium text-gray-800">{selected.tc_kimlik}</p></div>
-                <div><span className="text-gray-500">Okul:</span><p className="font-medium text-gray-800">{selected.okul}</p></div>
-                <div><span className="text-gray-500">Bölüm:</span><p className="font-medium text-gray-800">{selected.bolum}</p></div>
-                <div><span className="text-gray-500">Sınıf:</span><p className="font-medium text-gray-800">{selected.sinif}</p></div>
-                <div><span className="text-gray-500">Dönem:</span><p className="font-medium text-gray-800">{selected.donem}</p></div>
-                <div><span className="text-gray-500">Oda Tercihi:</span><p className="font-medium text-gray-800">{selected.oda_tercihi === '2_kisilik' ? '2 Kişilik' : selected.oda_tercihi === '4_kisilik' ? '4 Kişilik' : 'Farketmez'}</p></div>
-                <div><span className="text-gray-500">Gelir Durumu:</span><p className="font-medium text-gray-800 capitalize">{selected.gelir_durumu}</p></div>
+                <div><span className="text-gray-500">Ad Soyad:</span><p className="font-medium text-gray-800">{selected.ad ?? '—'} {selected.soyad ?? ''}</p></div>
+                <div><span className="text-gray-500">TC Kimlik:</span><p className="font-medium text-gray-800">{selected.tc_kimlik ?? '—'}</p></div>
+                <div><span className="text-gray-500">Okul:</span><p className="font-medium text-gray-800">{selected.okul ?? '—'}</p></div>
+                <div><span className="text-gray-500">Bölüm:</span><p className="font-medium text-gray-800">{selected.bolum ?? '—'}</p></div>
+                <div><span className="text-gray-500">Sınıf:</span><p className="font-medium text-gray-800">{selected.sinif ?? '—'}</p></div>
+                <div><span className="text-gray-500">Dönem:</span><p className="font-medium text-gray-800">{selected.donem ?? '—'}</p></div>
+                <div><span className="text-gray-500">Oda Tercihi:</span><p className="font-medium text-gray-800">{selected.oda_tercihi === '2_kisilik' ? '2 Kişilik' : selected.oda_tercihi === '4_kisilik' ? '4 Kişilik' : selected.oda_tercihi ? 'Farketmez' : '—'}</p></div>
+                <div><span className="text-gray-500">Gelir Durumu:</span><p className="font-medium text-gray-800 capitalize">{selected.gelir_durumu ?? '—'}</p></div>
               </div>
             </div>
-            {selected.durum === 'beklemede' && (
+            {(selected.durum === 'beklemede' || selected.durum == null) && (
               <div className="flex gap-3 mt-6">
                 <button onClick={() => handleAction(selected.id, 'onaylandi')} disabled={processing}
                   className="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
@@ -125,16 +141,16 @@ export default function ApplicationsPage() {
               {filtered.length === 0 ? (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">Başvuru bulunamadı</td></tr>
               ) : filtered.map((b) => {
-                const config = durumConfig(b.durum);
+                const config = durumConfig(b.durum ?? 'beklemede');
                 const StatusIcon = config.icon;
                 return (
                   <tr key={b.id} className="hover:bg-gray-50/50">
                     <td className="px-5 py-3">
-                      <p className="font-medium text-gray-800">{b.ad} {b.soyad}</p>
-                      <p className="text-xs text-gray-400">{b.email}</p>
+                      <p className="font-medium text-gray-800">{b.ad ?? '—'} {b.soyad ?? ''}</p>
+                      <p className="text-xs text-gray-400">{b.email ?? ''}</p>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{b.okul} / {b.bolum}</td>
-                    <td className="px-5 py-3 text-gray-600">{b.donem}</td>
+                    <td className="px-5 py-3 text-gray-600">{b.okul ?? '—'} / {b.bolum ?? '—'}</td>
+                    <td className="px-5 py-3 text-gray-600">{b.donem ?? '—'}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${config.color}`}>
                         <StatusIcon size={12} /> {config.label}

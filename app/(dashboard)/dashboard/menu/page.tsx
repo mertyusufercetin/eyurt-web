@@ -30,6 +30,8 @@ export default function MenuPage() {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Group by date

@@ -19,14 +19,16 @@ export default function RoomsPage() {
       setLoading(false);
     }
     load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   if (currentUser?.rol !== 'mudur') {
     return <div className="flex items-center justify-center h-64"><p className="text-gray-400 text-sm">Bu sayfaya erişim yetkiniz bulunmamaktadır.</p></div>;
   }
 
-  const filtered = filter === 'all' ? odalar : odalar.filter(o => o.durum === filter);
-  const aktifOdalar = odalar.filter(o => o.durum === 'aktif');
+  const filtered = filter === 'all' ? odalar : odalar.filter(o => (o.durum ?? 'aktif') === filter);
+  const aktifOdalar = odalar.filter(o => (o.durum ?? 'aktif') === 'aktif');
   const toplamKapasite = aktifOdalar.reduce((s, o) => s + o.kapasite, 0);
   const toplamDolu = aktifOdalar.reduce((s, o) => s + o.dolu_kisi_sayisi, 0);
   const doluluk = toplamKapasite > 0 ? Math.round((toplamDolu / toplamKapasite) * 100) : 0;
@@ -63,7 +65,7 @@ export default function RoomsPage() {
         </div>
         <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4">
           <p className="text-xs font-medium text-emerald-600">Aktif</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1">{odalar.filter(o => o.durum === 'aktif').length}</p>
+          <p className="text-2xl font-bold text-emerald-700 mt-1">{odalar.filter(o => (o.durum ?? 'aktif') === 'aktif').length}</p>
         </div>
         <div className="bg-amber-50 rounded-xl border border-amber-100 p-4">
           <p className="text-xs font-medium text-amber-600">Tadilatta</p>
@@ -93,20 +95,20 @@ export default function RoomsPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         {filtered.map((oda) => {
-          const config = durumConfig(oda.durum);
+          const config = durumConfig(oda.durum ?? 'aktif');
           return (
             <div key={oda.id} className={`bg-white rounded-xl border-2 p-4 ${config.color}`}>
               <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-gray-800">{oda.oda_no}</span>
+                <span className="font-bold text-gray-800">{oda.oda_no ?? `#${oda.id.slice(0, 6)}`}</span>
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.badge}`}>
-                  {oda.durum === 'aktif' ? 'Aktif' : oda.durum === 'tadilatta' ? 'Tadilatta' : 'Pasif'}
+                  {(oda.durum ?? 'aktif') === 'aktif' ? 'Aktif' : (oda.durum ?? 'aktif') === 'tadilatta' ? 'Tadilatta' : 'Pasif'}
                 </span>
               </div>
               <p className="text-xs text-gray-400 mb-2">Kat {oda.kat}</p>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-500">{oda.dolu_kisi_sayisi}/{oda.kapasite} kişi</span>
               </div>
-              {oda.durum === 'aktif' && (
+              {(oda.durum ?? 'aktif') === 'aktif' && (
                 <div className="mt-2 w-full bg-gray-100 rounded-full h-1.5">
                   <div className={`h-1.5 rounded-full ${dolulukRenk(oda)}`}
                     style={{ width: `${oda.kapasite > 0 ? (oda.dolu_kisi_sayisi / oda.kapasite) * 100 : 0}%` }} />
